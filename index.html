@@ -12,6 +12,10 @@
 
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase SDK (Compat Version via CDN) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
@@ -19,9 +23,9 @@
   <header class="bg-green-700 text-white p-4 shadow-md sticky top-0 z-10">
     <div class="flex justify-between items-center max-w-lg mx-auto">
       <h1 class="text-lg font-bold flex items-center gap-2">
-        <span>💊</span> Stok Apotek PWA
+        <span>🔥</span> Stok Apotek PWA
       </h1>
-      <span id="pwa-status" class="text-xs bg-green-800 px-2 py-1 rounded">Online</span>
+      <span id="pwa-status" class="text-xs bg-green-800 px-2 py-1 rounded">Realtime</span>
     </div>
   </header>
 
@@ -37,15 +41,13 @@
 
   <main class="max-w-lg mx-auto p-4">
 
-    <!-- TAB 1: DAFTAR STOK -->
+    <!-- TAB 1: DAFTAR STOK REALTIME -->
     <section id="tab-stok">
       <div class="flex justify-between items-center mb-3">
         <h2 class="font-bold text-gray-700">Monitoring Stok Utama</h2>
-        <button onclick="loadStok()" class="text-xs bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200">
-          🔄 Refresh
-        </button>
+        <span class="text-xs text-green-600 font-semibold">● Live Sync</span>
       </div>
-      <div id="loading" class="text-center text-gray-500 py-8">Memuat data dari Google Sheets...</div>
+      <div id="loading" class="text-center text-gray-500 py-8">Memuat data dari Firebase...</div>
       <ul id="stok-list" class="space-y-2"></ul>
     </section>
 
@@ -122,10 +124,22 @@
   </main>
 
   <script>
-    // PASANG URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI
-    const API_URL = "PASANG_URL_WEB_APP_APPS_SCRIPT_DISINI";
+    // Konfigurasi Firebase Anda
+    const firebaseConfig = {
+      apiKey: "AIzaSyALa6j05iwf2eQxqX3oEs6zZdLhc6OBl48",
+      authDomain: "pwa-1b376.firebaseapp.com",
+      projectId: "pwa-1b376",
+      storageBucket: "pwa-1b376.firebasestorage.app",
+      messagingSenderId: "178627295946",
+      appId: "1:178627295946:web:14965e737bef0707075233",
+      measurementId: "G-B69KG49ME6"
+    };
 
-    // Switch Tab
+    // Inisialisasi Firebase & Firestore
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    // Switch Tab Navigasi
     function switchTab(tab) {
       const tabStok = document.getElementById('tab-stok');
       const tabInput = document.getElementById('tab-input');
@@ -137,7 +151,6 @@
         tabInput.classList.add('hidden');
         btnStok.className = "w-1/2 py-3 border-b-2 border-green-600 text-green-700 font-bold";
         btnInput.className = "w-1/2 py-3 border-b-2 border-transparent hover:text-green-600";
-        loadStok();
       } else {
         tabInput.classList.remove('hidden');
         tabStok.classList.add('hidden');
@@ -146,85 +159,116 @@
       }
     }
 
-    // Read Data Stok
-    async function loadStok() {
-      const list = document.getElementById('stok-list');
-      const loading = document.getElementById('loading');
-      loading.style.display = 'block';
-      loading.innerText = 'Memuat data dari Google Sheets...';
-      list.innerHTML = '';
-
-      try {
-        const res = await fetch(API_URL);
-        const data = await res.json();
+    // Membaca Data Stok Realtime dari Firestore
+    function listenStokRealtime() {
+      db.collection("stok_utama").onSnapshot((snapshot) => {
+        const list = document.getElementById('stok-list');
+        const loading = document.getElementById('loading');
         loading.style.display = 'none';
 
-        if (!data || data.length === 0) {
-          list.innerHTML = '<li class="text-center text-gray-500 py-4">Belum ada data stok.</li>';
+        if (snapshot.empty) {
+          list.innerHTML = '<li class="text-center text-gray-500 py-6 bg-white rounded-lg shadow">Belum ada barang di database Firebase. Sila input barang masuk terlebih dahulu.</li>';
           return;
         }
-        
-        list.innerHTML = data.map(item => `
-          <li class="bg-white p-3 rounded-lg shadow flex justify-between items-center border-l-4 ${item.Status_Stok === 'KRITIS' ? 'border-red-500' : 'border-green-500'}">
-            <div>
-              <p class="font-bold text-gray-800 text-sm">${item.Nama_Produk}</p>
-              <p class="text-xs text-gray-500">${item.SKU_Code} • ${item.Kategori || '-'}</p>
-            </div>
-            <div class="text-right">
-              <span class="text-base font-extrabold text-gray-800">${item.Stok_Aktual}</span>
-              <p class="text-[10px] font-bold ${item.Status_Stok === 'KRITIS' ? 'text-red-600' : 'text-green-600'}">${item.Status_Stok}</p>
-            </div>
-          </li>
-        `).join('');
-      } catch (err) {
-        loading.innerText = "⚠️ Gagal memuat data!";
-      }
+
+        let html = '';
+        snapshot.forEach((doc) => {
+          const item = doc.data();
+          const stokAktual = Number(item.stok_aktual) || 0;
+          const bufferQty = Number(item.buffer_qty || 5);
+          const isKritis = stokAktual <= bufferQty;
+
+          html += `
+            <li class="bg-white p-3 rounded-lg shadow flex justify-between items-center border-l-4 ${isKritis ? 'border-red-500' : 'border-green-500'}">
+              <div>
+                <p class="font-bold text-gray-800 text-sm">${item.nama_produk}</p>
+                <p class="text-xs text-gray-500">${item.sku} • ${item.kategori || 'Obat'}</p>
+              </div>
+              <div class="text-right">
+                <span class="text-base font-extrabold text-gray-800">${stokAktual} ${item.satuan || ''}</span>
+                <p class="text-[10px] font-bold ${isKritis ? 'text-red-600' : 'text-green-600'}">${isKritis ? 'KRITIS' : 'AMAN'}</p>
+              </div>
+            </li>
+          `;
+        });
+        list.innerHTML = html;
+      }, (error) => {
+        document.getElementById('loading').innerText = "⚠️ Error Firebase: " + error.message;
+      });
     }
 
-    // Submit Form Barang Masuk ke Google Sheets
+    // Submit Barang Masuk & Update Stok Otomatis
     async function kirimBarangMasuk(e) {
       e.preventDefault();
       const btnSubmit = document.getElementById('btn-submit');
       btnSubmit.disabled = true;
-      btnSubmit.innerText = "⏳ Menyimpan Data...";
+      btnSubmit.innerText = "⏳ Menyimpan ke Firebase...";
 
-      const payload = {
+      const sku = document.getElementById('sku').value.trim().toUpperCase();
+      const nama_produk = document.getElementById('nama_produk').value.trim();
+      const qty = Number(document.getElementById('qty').value) || 0;
+      const harga = Number(document.getElementById('harga').value) || 0;
+      const satuan = document.getElementById('satuan').value.trim();
+
+      const dataMasuk = {
         no_faktur: document.getElementById('no_faktur').value,
         no_po: document.getElementById('no_po').value,
         supplier: document.getElementById('supplier').value,
-        sku: document.getElementById('sku').value,
-        nama_produk: document.getElementById('nama_produk').value,
-        qty: Number(document.getElementById('qty').value),
-        satuan: document.getElementById('satuan').value,
+        sku: sku,
+        nama_produk: nama_produk,
+        qty: qty,
+        satuan: satuan,
         no_batch: document.getElementById('no_batch').value,
         ed: document.getElementById('ed').value,
-        harga: Number(document.getElementById('harga').value),
-        penerima: document.getElementById('penerima').value
+        harga: harga,
+        total: qty * harga,
+        penerima: document.getElementById('penerima').value,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
       };
 
       try {
-        // Mengirim JSON ke Google Apps Script
-        await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
-        });
+        // 1. Catat transaksi di koleksi 'barang_masuk'
+        await db.collection("barang_masuk").add(dataMasuk);
+
+        // 2. Tambahkan/Update stok di koleksi 'stok_utama'
+        const stokRef = db.collection("stok_utama").doc(sku);
+        const doc = await stokRef.get();
+
+        if (doc.exists) {
+          const stokLama = Number(doc.data().stok_aktual) || 0;
+          await stokRef.update({
+            stok_aktual: stokLama + qty,
+            harga_beli: harga,
+            updated_at: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        } else {
+          await stokRef.set({
+            sku: sku,
+            nama_produk: nama_produk,
+            stok_aktual: qty,
+            satuan: satuan,
+            harga_beli: harga,
+            buffer_qty: 5,
+            kategori: 'Obat',
+            created_at: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
 
         alert("✅ Data Barang Masuk Berhasil Disimpan!");
         document.getElementById('form-barang-masuk').reset();
-        switchTab('stok'); // Otomatis kembali ke tab stok setelah input
+        switchTab('stok');
       } catch (err) {
-        alert("❌ Gagal menyimpan data. Coba lagi.");
+        alert("❌ Gagal menyimpan data: " + err.message);
       } finally {
         btnSubmit.disabled = false;
         btnSubmit.innerText = "💾 Simpan Barang Masuk";
       }
     }
 
-    // Initial Load
-    loadStok();
+    // Jalankan Sinkronisasi Realtime
+    listenStokRealtime();
 
-    // Registrasi Service Worker PWA
+    // Registrasi PWA Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
