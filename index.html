@@ -13,9 +13,10 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Firebase SDK (Compat Version via CDN) -->
+  <!-- Firebase Web SDK v10 (Compat Version) -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <!-- Library khusus Firebase REALTIME DATABASE -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
@@ -23,9 +24,9 @@
   <header class="bg-green-700 text-white p-4 shadow-md sticky top-0 z-10">
     <div class="flex justify-between items-center max-w-lg mx-auto">
       <h1 class="text-lg font-bold flex items-center gap-2">
-        <span>🔥</span> Stok Apotek PWA
+        <span>⚡</span> Stok Apotek (Realtime DB)
       </h1>
-      <span id="pwa-status" class="text-xs bg-green-800 px-2 py-1 rounded">Realtime</span>
+      <span id="pwa-status" class="text-xs bg-green-800 px-2 py-1 rounded">Live Sync</span>
     </div>
   </header>
 
@@ -45,9 +46,9 @@
     <section id="tab-stok">
       <div class="flex justify-between items-center mb-3">
         <h2 class="font-bold text-gray-700">Monitoring Stok Utama</h2>
-        <span class="text-xs text-green-600 font-semibold">● Live Sync</span>
+        <span class="text-xs text-green-600 font-semibold">● Auto Sync</span>
       </div>
-      <div id="loading" class="text-center text-gray-500 py-8">Memuat data dari Firebase...</div>
+      <div id="loading" class="text-center text-gray-500 py-8">Memuat data dari Realtime Database...</div>
       <ul id="stok-list" class="space-y-2"></ul>
     </section>
 
@@ -124,10 +125,11 @@
   </main>
 
   <script>
-    // Konfigurasi Firebase Anda
+    // Konfigurasi Firebase dengan URL Realtime Database Anda
     const firebaseConfig = {
       apiKey: "AIzaSyALa6j05iwf2eQxqX3oEs6zZdLhc6OBl48",
       authDomain: "pwa-1b376.firebaseapp.com",
+      databaseURL: "https://pwa-1b376-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "pwa-1b376",
       storageBucket: "pwa-1b376.firebasestorage.app",
       messagingSenderId: "178627295946",
@@ -135,9 +137,9 @@
       measurementId: "G-B69KG49ME6"
     };
 
-    // Inisialisasi Firebase & Firestore
+    // Inisialisasi Firebase & Realtime Database
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const db = firebase.database();
 
     // Switch Tab Navigasi
     function switchTab(tab) {
@@ -159,21 +161,21 @@
       }
     }
 
-    // Membaca Data Stok Realtime dari Firestore
+    // Membaca Data Stok Realtime dari Node 'stok_utama'
     function listenStokRealtime() {
-      db.collection("stok_utama").onSnapshot((snapshot) => {
+      db.ref("stok_utama").on("value", (snapshot) => {
         const list = document.getElementById('stok-list');
         const loading = document.getElementById('loading');
         loading.style.display = 'none';
 
-        if (snapshot.empty) {
-          list.innerHTML = '<li class="text-center text-gray-500 py-6 bg-white rounded-lg shadow">Belum ada barang di database Firebase. Sila input barang masuk terlebih dahulu.</li>';
+        if (!snapshot.exists()) {
+          list.innerHTML = '<li class="text-center text-gray-500 py-6 bg-white rounded-lg shadow">Belum ada barang di Realtime Database. Sila input barang masuk terlebih dahulu.</li>';
           return;
         }
 
         let html = '';
-        snapshot.forEach((doc) => {
-          const item = doc.data();
+        snapshot.forEach((childSnapshot) => {
+          const item = childSnapshot.val();
           const stokAktual = Number(item.stok_aktual) || 0;
           const bufferQty = Number(item.buffer_qty || 5);
           const isKritis = stokAktual <= bufferQty;
@@ -193,16 +195,16 @@
         });
         list.innerHTML = html;
       }, (error) => {
-        document.getElementById('loading').innerText = "⚠️ Error Firebase: " + error.message;
+        document.getElementById('loading').innerText = "⚠️ Error Database: " + error.message;
       });
     }
 
-    // Submit Barang Masuk & Update Stok Otomatis
+    // Submit Barang Masuk & Update Stok Otomatis di Realtime Database
     async function kirimBarangMasuk(e) {
       e.preventDefault();
       const btnSubmit = document.getElementById('btn-submit');
       btnSubmit.disabled = true;
-      btnSubmit.innerText = "⏳ Menyimpan ke Firebase...";
+      btnSubmit.innerText = "⏳ Menyimpan Data...";
 
       const sku = document.getElementById('sku').value.trim().toUpperCase();
       const nama_produk = document.getElementById('nama_produk').value.trim();
@@ -223,23 +225,23 @@
         harga: harga,
         total: qty * harga,
         penerima: document.getElementById('penerima').value,
-        created_at: firebase.firestore.FieldValue.serverTimestamp()
+        created_at: firebase.database.ServerValue.TIMESTAMP
       };
 
       try {
-        // 1. Catat transaksi di koleksi 'barang_masuk'
-        await db.collection("barang_masuk").add(dataMasuk);
+        // 1. Simpan Log Penerimaan ke node 'barang_masuk'
+        await db.ref("barang_masuk").push(dataMasuk);
 
-        // 2. Tambahkan/Update stok di koleksi 'stok_utama'
-        const stokRef = db.collection("stok_utama").doc(sku);
-        const doc = await stokRef.get();
+        // 2. Cek & Update Stok di node 'stok_utama/SKU'
+        const stokRef = db.ref("stok_utama/" + sku);
+        const snapshot = await stokRef.once('value');
 
-        if (doc.exists) {
-          const stokLama = Number(doc.data().stok_aktual) || 0;
+        if (snapshot.exists()) {
+          const stokLama = Number(snapshot.val().stok_aktual) || 0;
           await stokRef.update({
             stok_aktual: stokLama + qty,
             harga_beli: harga,
-            updated_at: firebase.firestore.FieldValue.serverTimestamp()
+            updated_at: firebase.database.ServerValue.TIMESTAMP
           });
         } else {
           await stokRef.set({
@@ -250,7 +252,7 @@
             harga_beli: harga,
             buffer_qty: 5,
             kategori: 'Obat',
-            created_at: firebase.firestore.FieldValue.serverTimestamp()
+            created_at: firebase.database.ServerValue.TIMESTAMP
           });
         }
 
@@ -265,15 +267,15 @@
       }
     }
 
-    // Jalankan Sinkronisasi Realtime
+    // Jalankan Sinkronisasi Realtime saat halaman dibuka
     listenStokRealtime();
 
-    // Registrasi PWA Service Worker
+    // PWA Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('PWA Service Worker registered:', reg))
-          .catch(err => console.log('PWA SW Register Error:', err));
+          .then(reg => console.log('SW PWA Terdaftar', reg))
+          .catch(err => console.log('SW Error', err));
       });
     }
   </script>
