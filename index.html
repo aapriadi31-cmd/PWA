@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aplikasi Operasional & Inventory Apotek</title>
+  <title>Apotek Manager - PWA Operasional</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f172a">
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Firebase Compat SDK (Realtime Database) -->
+
+  <!-- Firebase Compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
@@ -23,7 +23,7 @@
         <h1 class="text-base font-bold text-amber-400 flex items-center gap-2">
           <span>💊</span> Apotek Manager
         </h1>
-        <p class="text-[11px] text-slate-400">Mode Non-Kasir | Plafon Belanja 65%</p>
+        <p class="text-[11px] text-slate-400">Mode Non-Kasir | OPEX Bersih Toko</p>
       </div>
       <span id="dbStatus" class="text-[10px] bg-slate-700 text-slate-300 px-2 py-1 rounded-full border border-slate-600">Offline</span>
     </div>
@@ -39,16 +39,18 @@
           <span>📊 Input Omzet & Kontrol Kas</span>
           <span class="text-xs font-normal text-slate-400" id="currentDateText"></span>
         </h2>
-        
+
         <div class="space-y-2">
           <div>
             <label class="text-xs text-slate-400 block mb-1">Total Omzet Penjualan (Rp)</label>
-            <input type="number" id="inputOmzet" placeholder="Contoh: 3500000" 
+            <input type="number" id="inputOmzet" placeholder="Contoh: 3500000"
                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-amber-400 font-bold focus:outline-none focus:border-amber-400">
           </div>
           <div>
-            <label class="text-xs text-slate-400 block mb-1">Estimasi OPEX Harian (Rp)</label>
-            <input type="number" id="inputOpex" value="333000" 
+            <label class="text-xs text-slate-400 block mb-1">
+              OPEX Harian Toko <span class="text-[10px] text-amber-400/90">(Listrik, Air, Kebersihan — Excl. Sewa & Gaji)</span>
+            </label>
+            <input type="number" id="inputOpex" value="50000"
                    class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-400">
           </div>
           <button onclick="hitungDanSimpanOmzet()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-lg text-sm transition-all shadow-md mt-2">
@@ -60,14 +62,17 @@
       <!-- RINGKASAN ALOKASI KAS -->
       <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-4 space-y-3">
         <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rincian Pembagian Kas Harian</h3>
-        
+
         <div class="space-y-2 text-xs">
           <div class="flex justify-between py-1 border-b border-slate-700/50">
-            <span class="text-slate-400">Laba Kotor (Omzet - OPEX)</span>
+            <span class="text-slate-400">Laba Kotor (Omzet - OPEX Bersih)</span>
             <span class="font-semibold text-slate-200" id="resLabaKotor">Rp 0</span>
           </div>
           <div class="flex justify-between py-1 border-b border-slate-700/50">
-            <span class="text-slate-400">Setoran Pemilik (20%)</span>
+            <div>
+              <span class="text-slate-400 block">Setoran Pemilik (20%)</span>
+              <span class="text-[10px] text-slate-500">*Alokasi untuk Sewa Kios, Gaji Staf, & Profit</span>
+            </div>
             <span class="font-semibold text-rose-400" id="resSetoranPemilik">Rp 0</span>
           </div>
           <div class="flex justify-between py-1 border-b border-slate-700/50">
@@ -75,8 +80,11 @@
             <span class="font-semibold text-rose-400">Rp 217.000</span>
           </div>
           <div class="flex justify-between py-2 bg-slate-900/80 px-3 rounded-lg border border-emerald-500/30">
-            <span class="font-bold text-emerald-400">Plafon Belanja PBF (Kas Bebas)</span>
-            <span class="font-bold text-emerald-400 text-sm" id="resPlafonBelanja">Rp 0</span>
+            <div>
+              <span class="font-bold text-emerald-400 block">Plafon Belanja PBF (Kas Bebas)</span>
+              <span class="text-[10px] text-emerald-500/80">Disiapkan untuk Modal & Pelunasan TOP</span>
+            </div>
+            <span class="font-bold text-emerald-400 text-sm self-center" id="resPlafonBelanja">Rp 0</span>
           </div>
         </div>
       </div>
@@ -86,7 +94,7 @@
     <section id="tab-quicktick" class="tab-content hidden space-y-3">
       <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 space-y-2">
         <div class="flex justify-between text-xs">
-          <span class="text-slate-400">Batas Anggaran Order (65%):</span>
+          <span class="text-slate-400">Batas Anggaran Order (Plafon Kas Bebas):</span>
           <span class="font-bold text-emerald-400" id="qtPlafonLimit">Rp 0</span>
         </div>
         <div class="flex justify-between text-xs border-t border-slate-700/50 pt-1">
@@ -104,31 +112,29 @@
       </div>
 
       <!-- DAFTAR OBAT -->
-      <div id="obatContainer" class="space-y-2">
-        <!-- Item di-generate via JS -->
-      </div>
+      <div id="obatContainer" class="space-y-2"></div>
     </section>
 
-    <!-- TAB 3: INPUT FAKTUR MASUK -->
+    <!-- TAB 3: INPUT FAKTUR PBF -->
     <section id="tab-faktur" class="tab-content hidden space-y-4">
       <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
         <h2 class="text-sm font-bold text-slate-200 border-b border-slate-700 pb-2">📥 Penerimaan Barang Masuk (PBF)</h2>
-        
+
         <div class="space-y-2 text-xs">
           <div>
             <label class="text-slate-400 block mb-1">Nama PBF Supplier</label>
-            <input type="text" id="fakPbf" placeholder="Contoh: PT Mensa Bina Sukses" 
+            <input type="text" id="fakPbf" placeholder="Contoh: PT Mensa Bina Sukses"
                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-amber-400">
           </div>
           <div>
             <label class="text-slate-400 block mb-1">Nomor Faktur</label>
-            <input type="text" id="fakNo" placeholder="INV/2026/001" 
+            <input type="text" id="fakNo" placeholder="INV/2026/001"
                    class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-amber-400">
           </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
               <label class="text-slate-400 block mb-1">Total Nominal Faktur</label>
-              <input type="number" id="fakTotal" placeholder="Rp" 
+              <input type="number" id="fakTotal" placeholder="Rp"
                      class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-amber-400">
             </div>
             <div>
@@ -142,32 +148,51 @@
             </div>
           </div>
           <button onclick="simpanFakturMasuk()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg text-xs transition-all mt-2">
-            Simpan Faktur & Update Tanggal TOP
+            Simpan Faktur & Tanggal TOP
           </button>
         </div>
       </div>
     </section>
 
+    <!-- TAB 4: JADWAL TAGIHAN PBF -->
+    <section id="tab-jadwal" class="tab-content hidden space-y-3">
+      <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 space-y-2">
+        <h2 class="text-xs font-bold text-slate-300 flex justify-between items-center">
+          <span>📅 Ringkasan Tagihan TOP Pekan Ini</span>
+          <span class="text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full" id="cntOverdue">0 Overdue</span>
+        </h2>
+        <div class="flex justify-between text-xs pt-1 border-t border-slate-700/50">
+          <span class="text-slate-400">Total Wajib Bayar (H-7):</span>
+          <span class="font-bold text-amber-400" id="totalTagihanMingguIni">Rp 0</span>
+        </div>
+      </div>
+
+      <div id="tagihanContainer" class="space-y-2"></div>
+    </section>
+
   </main>
 
-  <!-- BOTTOM NAVIGATION BAR -->
+  <!-- BOTTOM NAVIGATION BAR (4 TAB) -->
   <nav class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-50">
-    <div class="max-w-md mx-auto grid grid-cols-3 text-center py-2 text-xs">
+    <div class="max-w-md mx-auto grid grid-cols-4 text-center py-2 text-[10px]">
       <button onclick="switchTab('cashflow')" id="nav-cashflow" class="text-amber-400 font-bold py-1 flex flex-col items-center">
-        <span class="text-base">💰</span> Kas & Omzet
+        <span class="text-base">💰</span> Kas
       </button>
       <button onclick="switchTab('quicktick')" id="nav-quicktick" class="text-slate-400 py-1 flex flex-col items-center">
         <span class="text-base">⚡</span> Quick-Tick
       </button>
       <button onclick="switchTab('faktur')" id="nav-faktur" class="text-slate-400 py-1 flex flex-col items-center">
-        <span class="text-base">📦</span> Faktur PBF
+        <span class="text-base">📦</span> Faktur
+      </button>
+      <button onclick="switchTab('jadwal')" id="nav-jadwal" class="text-slate-400 py-1 flex flex-col items-center">
+        <span class="text-base">📅</span> Tagihan
       </button>
     </div>
   </nav>
 
   <!-- SCRIPT UTAMA -->
   <script>
-    // 1. KONFIGURASI FIREBASE (Ganti dengan config milik Anda)
+    // Konfigurasi Firebase Realtime Database
     const firebaseConfig = {
       apiKey: "YOUR_API_KEY",
       authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -178,13 +203,10 @@
       appId: "1:123456789:web:abc123def456"
     };
 
-    // Inisialisasi Firebase
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Cek Status Koneksi DB
+    // Status Koneksi DB
     db.ref('.info/connected').on('value', (snap) => {
       const statusEl = document.getElementById('dbStatus');
       if (snap.val() === true) {
@@ -196,7 +218,7 @@
       }
     });
 
-    // Data Master Obat (Dummy / Cached Data)
+    // Data Master Obat (Sesuai histori rekap pembelian)
     let masterObat = [
       { id: "OBT01", nama: "Amoxicillin 500mg Box", pbf: "Hexpharm", harga: 185000, isFast: true },
       { id: "OBT02", nama: "Paracetamol Syrup 120mg", pbf: "Kalbe", harga: 92000, isFast: true },
@@ -206,39 +228,35 @@
 
     let currentPlafon = 0;
     let selectedItems = {};
+    let activeCategory = 'all';
 
-    // Inisialisasi Tampilan
     document.getElementById('currentDateText').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
 
-    // Switch Tab UI
     function switchTab(tabName) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
       document.getElementById('tab-' + tabName).classList.remove('hidden');
 
-      ['cashflow', 'quicktick', 'faktur'].forEach(t => {
+      ['cashflow', 'quicktick', 'faktur', 'jadwal'].forEach(t => {
         const btn = document.getElementById('nav-' + t);
-        if (t === tabName) {
-          btn.className = "text-amber-400 font-bold py-1 flex flex-col items-center";
-        } else {
-          btn.className = "text-slate-400 py-1 flex flex-col items-center";
-        }
+        btn.className = (t === tabName) ? "text-amber-400 font-bold py-1 flex flex-col items-center" : "text-slate-400 py-1 flex flex-col items-center";
       });
 
-      if(tabName === 'quicktick') renderObatList();
+      if (tabName === 'quicktick') renderObatList();
+      if (tabName === 'jadwal') muatJadwalTagihan();
     }
 
-    // Perhitungan Kas & Omzet
+    // PERHITUNGAN KAS (SKEMA OPEX BERSIH)
     function hitungDanSimpanOmzet() {
       const omzet = parseFloat(document.getElementById('inputOmzet').value) || 0;
-      const opex = parseFloat(document.getElementById('inputOpex').value) || 0;
+      const opexBersih = parseFloat(document.getElementById('inputOpex').value) || 0;
 
       if (omzet <= 0) {
         alert('Masukkan nominal omzet harian.');
         return;
       }
 
-      const labaKotor = omzet - opex;
-      const setorPemilik = labaKotor * 0.20;
+      const labaKotor = omzet - opexBersih;
+      const setorPemilik = labaKotor * 0.20; // Pemilik membayar sewa kios & gaji staf dari sini
       const setorTetapPajak = 217000; // Rp 6.5M / 30 Hari
       const plafonBelanja = (0.80 * labaKotor) - setorTetapPajak;
 
@@ -249,32 +267,39 @@
       document.getElementById('resPlafonBelanja').innerText = 'Rp ' + plafonBelanja.toLocaleString('id-ID');
       document.getElementById('qtPlafonLimit').innerText = 'Rp ' + plafonBelanja.toLocaleString('id-ID');
 
-      // Simpan ke Firebase
       const todayStr = new Date().toISOString().split('T')[0];
       db.ref('omzet_harian/' + todayStr).set({
         omzet: omzet,
-        opex: opex,
+        opexBersih: opexBersih,
         labaKotor: labaKotor,
         setoranPemilik: setorPemilik,
         plafonBelanja: plafonBelanja,
         timestamp: firebase.database.ServerValue.TIMESTAMP
       }).then(() => {
-        alert('Data Omzet berhasil dikunci di database!');
+        alert('Data Omzet berhasil dikunci! Plafon Belanja PBF: Rp ' + plafonBelanja.toLocaleString('id-ID'));
       }).catch(err => {
-        console.warn('Gagal simpan ke DB, berjalan offline:', err);
+        console.warn('Simpan offline/lokal:', err);
       });
     }
 
-    // Render List Quick-Tick
+    // RENDER OBAT QUICK-TICK
     function renderObatList() {
       const container = document.getElementById('obatContainer');
       container.innerHTML = '';
 
+      const searchVal = (document.getElementById('qtSearch').value || '').toLowerCase();
+
       masterObat.forEach(item => {
+        if (activeCategory === 'fast' && !item.isFast) return;
+        if (searchVal && !item.nama.toLowerCase().includes(searchVal) && !item.pbf.toLowerCase().includes(searchVal)) return;
+
+        const isChecked = !!selectedItems[item.id];
+        const currentQty = selectedItems[item.id] ? selectedItems[item.id].qty : 1;
+
         const div = document.createElement('div');
-        div.className = "bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-3";
+        div.className = `bg-slate-800 border ${isChecked ? 'border-amber-400' : 'border-slate-700'} rounded-lg p-3 flex items-center justify-between gap-3 transition-all`;
         div.innerHTML = `
-          <input type="checkbox" onchange="toggleObatSelect('${item.id}', ${item.harga}, this)" class="w-5 h-5 accent-amber-400 rounded cursor-pointer">
+          <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleObatSelect('${item.id}', ${item.harga}, this)" class="w-5 h-5 accent-amber-400 rounded cursor-pointer">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-1">
               <span class="font-semibold text-xs truncate text-slate-100">${item.nama}</span>
@@ -283,13 +308,22 @@
             <p class="text-[11px] text-slate-400">PBF: ${item.pbf} | Rp ${item.harga.toLocaleString('id-ID')}/Box</p>
           </div>
           <div class="text-right">
-            <input type="number" id="qty-${item.id}" value="1" min="1" onchange="updateQty('${item.id}', ${item.harga})"
+            <input type="number" id="qty-${item.id}" value="${currentQty}" min="1" onchange="updateQty('${item.id}', ${item.harga})"
                    class="w-12 bg-slate-900 border border-slate-600 rounded text-center text-xs text-amber-400 font-bold py-1">
             <span class="text-[10px] text-slate-400 block">Box</span>
           </div>
         `;
         container.appendChild(div);
       });
+    }
+
+    function filterKategori(cat) {
+      activeCategory = cat;
+      renderObatList();
+    }
+
+    function filterObat() {
+      renderObatList();
     }
 
     function toggleObatSelect(id, harga, checkbox) {
@@ -300,6 +334,7 @@
         delete selectedItems[id];
       }
       kalkulasiTotalPO();
+      renderObatList();
     }
 
     function updateQty(id, harga) {
@@ -326,7 +361,7 @@
       }
     }
 
-    // Simpan Faktur PBF
+    // FAKTUR & JADWAL TOP
     function simpanFakturMasuk() {
       const pbf = document.getElementById('fakPbf').value;
       const noFak = document.getElementById('fakNo').value;
@@ -338,32 +373,108 @@
         return;
       }
 
-      const tglJatuhTempo = new Date();
-      tglJatuhTempo.setDate(tglJatuhTempo.getDate() + top);
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + top);
 
-      const fakturData = {
+      const data = {
         pbf: pbf,
         noFaktur: noFak,
         totalNominal: total,
         topHari: top,
-        tanggalJatuhTempo: tglJatuhTempo.toISOString().split('T')[0],
+        tanggalJatuhTempo: dueDate.toISOString().split('T')[0],
+        status: "Belum Lunas",
         timestamp: firebase.database.ServerValue.TIMESTAMP
       };
 
-      db.ref('faktur_masuk').push(fakturData).then(() => {
-        alert('Faktur berhasil dicatat. Tanggal Jatuh Tempo: ' + fakturData.tanggalJatuhTempo);
+      db.ref('faktur_masuk').push(data).then(() => {
+        alert('Faktur tersimpan! Jatuh tempo pada: ' + data.tanggalJatuhTempo);
         document.getElementById('fakPbf').value = '';
         document.getElementById('fakNo').value = '';
         document.getElementById('fakTotal').value = '';
       });
     }
 
-    // 2. REGISTRASI SERVICE WORKER (PWA)
+    function muatJadwalTagihan() {
+      db.ref('faktur_masuk').on('value', (snap) => {
+        const data = snap.val();
+        let listFaktur = [];
+        if (data) {
+          Object.keys(data).forEach(key => {
+            listFaktur.push({ id: key, ...data[key] });
+          });
+        }
+        renderTagihanUI(listFaktur);
+      });
+    }
+
+    function renderTagihanUI(dataList) {
+      const container = document.getElementById('tagihanContainer');
+      container.innerHTML = '';
+
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      let totalMingguIni = 0;
+      let countOverdue = 0;
+
+      dataList.forEach(item => {
+        if (item.status === 'Lunas') return;
+
+        const dueDate = new Date(item.tanggalJatuhTempo);
+        dueDate.setHours(0,0,0,0);
+        const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+
+        let badgeClass = "bg-slate-700 text-slate-300 border-slate-600";
+        let statusLabel = `Aman (${diffDays} Hari)`;
+
+        if (diffDays < 0) {
+          badgeClass = "bg-rose-500/20 text-rose-400 border-rose-500/30";
+          statusLabel = `🚨 LEWAT ${Math.abs(diffDays)} HARI`;
+          countOverdue++;
+          totalMingguIni += item.totalNominal;
+        } else if (diffDays <= 7) {
+          badgeClass = "bg-amber-500/20 text-amber-400 border-amber-500/30";
+          statusLabel = `⚠️ H-${diffDays} Jatuh Tempo`;
+          totalMingguIni += item.totalNominal;
+        }
+
+        const div = document.createElement('div');
+        div.className = "bg-slate-800 border border-slate-700 rounded-lg p-3 flex justify-between items-center";
+        div.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-xs text-slate-100">${item.pbf}</span>
+              <span class="text-[9px] px-1.5 py-0.5 rounded border ${badgeClass}">${statusLabel}</span>
+            </div>
+            <p class="text-[11px] text-slate-400">No: ${item.noFaktur} | Tgl JT: <span class="text-slate-200">${item.tanggalJatuhTempo}</span></p>
+            <p class="text-xs font-bold text-cyan-400 mt-1">Rp ${item.totalNominal.toLocaleString('id-ID')}</p>
+          </div>
+          <button onclick="bayarFaktur('${item.id}')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] px-3 py-1.5 rounded-lg">
+            ✓ Pelunasan
+          </button>
+        `;
+        container.appendChild(div);
+      });
+
+      document.getElementById('cntOverdue').innerText = `${countOverdue} Overdue`;
+      document.getElementById('totalTagihanMingguIni').innerText = 'Rp ' + totalMingguIni.toLocaleString('id-ID');
+    }
+
+    function bayarFaktur(id) {
+      if (confirm('Tandai faktur ini sebagai LUNAS?')) {
+        db.ref('faktur_masuk/' + id).update({
+          status: "Lunas",
+          tanggalLunas: new Date().toISOString().split('T')[0]
+        }).then(() => alert('Faktur berhasil ditandai Lunas.'));
+      }
+    }
+
+    // REGISTRASI SERVICE WORKER
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
-          .then(reg => console.log('Service Worker Terdaftar:', reg.scope))
-          .catch(err => console.error('Gagal daftar SW:', err));
+          .then(reg => console.log('SW terdaftar:', reg.scope))
+          .catch(err => console.error('Gagal registrasi SW:', err));
       });
     }
   </script>
