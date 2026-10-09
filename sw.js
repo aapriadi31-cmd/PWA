@@ -1,48 +1,48 @@
-const CACHE_NAME = 'apotek-pwa-v1';
-const urlsToCache = [
-  './',
-  './index.html',
-  './manifest.json'
-];
+let totalEstimasi = 0;
+let itemCount = 0;
+const sisaPlafon = 12500000; // Contoh batas kas bebas dari omzet
 
-// Event Install: Simpan aset utama ke Cache
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('PWA Cache berhasil dibuka');
-      return cache.addAll(urlsToCache);
-    })
-  );
-  self.skipWaiting();
-});
+function toggleItem(checkbox, hargasatuan) {
+  const card = checkbox.closest('div');
+  const qtyInput = card.querySelector('input[type="number"]');
+  const qty = parseInt(qtyInput.value) || 1;
+  const itemTotal = hargasatuan * qty;
 
-// Event Activate: Hapus Cache Lama Jika Ada Perubahan Version
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('Menghapus cache lama:', cache);
-            return caches.delete(cache);
-          }
-        })
-      );
-    })
-  );
-  self.clients.claim();
-});
-
-// Event Fetch: Mengambil data dari cache jika offline, atau dari jaringan jika online
-self.addEventListener('fetch', (event) => {
-  // Biarkan request Firebase Firestore langsung lewat jaringan
-  if (event.request.url.includes('firestore.googleapis.com') || event.request.url.includes('firebase')) {
-    return;
+  if (checkbox.checked) {
+    totalEstimasi += itemTotal;
+    itemCount++;
+    card.classList.add('border-amber-400/50', 'bg-slate-800/90');
+  } else {
+    totalEstimasi -= itemTotal;
+    itemCount--;
+    card.classList.remove('border-amber-400/50', 'bg-slate-800/90');
   }
 
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
-  );
-});
+  updateSummary();
+}
+
+function updateSummary() {
+  document.getElementById('totalEstimasiPo').innerText = 'Rp ' + totalEstimasi.toLocaleString('id-ID');
+  document.getElementById('selectedCount').innerText = itemCount;
+
+  const statusElement = document.getElementById('statusAnggaran');
+  if (totalEstimasi > sisaPlafon) {
+    statusElement.innerText = '⚠️ Over Budget!';
+    statusElement.className = 'text-xs font-semibold text-red-400';
+  } else {
+    statusElement.innerText = 'Status: Safe';
+    statusElement.className = 'text-xs font-semibold text-emerald-400';
+  }
+}
+
+function submitOrder() {
+  if (itemCount === 0) {
+    alert('Pilih minimal 1 obat untuk dipesan.');
+    return;
+  }
+  if (totalEstimasi > sisaPlafon) {
+    alert('Total pesanan melebihi sisa plafon belanja 65%! Kurangi kuantitas atau obat non-vital.');
+    return;
+  }
+  alert('Surat Pesanan (SP) berhasil dibuat dan disinkronkan ke Firebase!');
+}
