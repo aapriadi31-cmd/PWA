@@ -3,99 +3,369 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Quick-Tick Asisten Order</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-900 text-slate-100 min-h-screen pb-28">
+  <title>Aplikasi Operasional & Inventory Apotek</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
 
-  <!-- TOP HEADER: Kontrol Budget Cashflow -->
-  <header class="sticky top-0 z-10 bg-slate-800 border-b border-slate-700 p-4 shadow-md">
-    <div class="flex justify-between items-center mb-2">
-      <h1 class="text-base font-bold text-amber-400">⚡ Quick-Tick Order</h1>
-      <span class="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">Plafon 65% Aktif</span>
-    </div>
-    <div class="grid grid-cols-2 gap-2 text-xs">
-      <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
-        <span class="text-slate-400 block">Sisa Plafon Belanja:</span>
-        <span class="text-sm font-bold text-emerald-400" id="sisaPlafon">Rp 12.500.000</span>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Firebase Compat SDK (Realtime Database) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-24 font-sans antialiased">
+
+  <!-- APP HEADER -->
+  <header class="bg-slate-800 border-b border-slate-700 sticky top-0 z-50 p-4 shadow-lg">
+    <div class="max-w-md mx-auto flex justify-between items-center">
+      <div>
+        <h1 class="text-base font-bold text-amber-400 flex items-center gap-2">
+          <span>💊</span> Apotek Manager
+        </h1>
+        <p class="text-[11px] text-slate-400">Mode Non-Kasir | Plafon Belanja 65%</p>
       </div>
-      <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
-        <span class="text-slate-400 block">Total Est. PO Ini:</span>
-        <span class="text-sm font-bold text-cyan-400" id="totalEstimasiPo">Rp 0</span>
-      </div>
+      <span id="dbStatus" class="text-[10px] bg-slate-700 text-slate-300 px-2 py-1 rounded-full border border-slate-600">Offline</span>
     </div>
   </header>
 
-  <!-- SEARCH & FILTER CEPAT -->
-  <section class="p-4 space-y-3">
-    <div class="relative">
-      <input type="text" id="searchInput" placeholder="Ketik nama obat / scan barcode..." 
-             class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-400">
-    </div>
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-md mx-auto p-4 space-y-4">
 
-    <!-- Filter Tab Pareto / Kelas -->
-    <div class="flex gap-2 overflow-x-auto text-xs font-medium pb-1">
-      <button class="bg-amber-500 text-slate-950 px-3 py-1.5 rounded-full font-semibold">🔥 Kelas A (Fast Moving)</button>
-      <button class="bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-full">⚠️ Kritis / ROP</button>
-      <button class="bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-full">💊 Obat Resep</button>
-    </div>
-  </section>
+    <!-- TAB 1: KEUANGAN & CASHFLOW -->
+    <section id="tab-cashflow" class="tab-content space-y-4">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
+        <h2 class="text-sm font-bold text-slate-200 border-b border-slate-700 pb-2 flex justify-between">
+          <span>📊 Input Omzet & Kontrol Kas</span>
+          <span class="text-xs font-normal text-slate-400" id="currentDateText"></span>
+        </h2>
+        
+        <div class="space-y-2">
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Total Omzet Penjualan (Rp)</label>
+            <input type="number" id="inputOmzet" placeholder="Contoh: 3500000" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-amber-400 font-bold focus:outline-none focus:border-amber-400">
+          </div>
+          <div>
+            <label class="text-xs text-slate-400 block mb-1">Estimasi OPEX Harian (Rp)</label>
+            <input type="number" id="inputOpex" value="333000" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-400">
+          </div>
+          <button onclick="hitungDanSimpanOmzet()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2.5 rounded-lg text-sm transition-all shadow-md mt-2">
+            Hitung & Kunci Alokasi Kas
+          </button>
+        </div>
+      </div>
 
-  <!-- DAFTAR OBAT (QUICK-TICK CARDS) -->
-  <main class="px-4 space-y-2" id="itemList">
-    
-    <!-- Item Card 1 -->
-    <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-3">
-      <input type="checkbox" onchange="toggleItem(this, 185000)" class="w-5 h-5 accent-amber-400 rounded cursor-pointer">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span class="font-semibold text-sm truncate text-slate-100">Amoxicillin 500mg</span>
-          <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.2 rounded">Fast</span>
+      <!-- RINGKASAN ALOKASI KAS -->
+      <div class="bg-slate-800/80 border border-slate-700 rounded-xl p-4 space-y-3">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Rincian Pembagian Kas Harian</h3>
+        
+        <div class="space-y-2 text-xs">
+          <div class="flex justify-between py-1 border-b border-slate-700/50">
+            <span class="text-slate-400">Laba Kotor (Omzet - OPEX)</span>
+            <span class="font-semibold text-slate-200" id="resLabaKotor">Rp 0</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-700/50">
+            <span class="text-slate-400">Setoran Pemilik (20%)</span>
+            <span class="font-semibold text-rose-400" id="resSetoranPemilik">Rp 0</span>
+          </div>
+          <div class="flex justify-between py-1 border-b border-slate-700/50">
+            <span class="text-slate-400">Cicilan Setor Tetap + Pajak</span>
+            <span class="font-semibold text-rose-400">Rp 217.000</span>
+          </div>
+          <div class="flex justify-between py-2 bg-slate-900/80 px-3 rounded-lg border border-emerald-500/30">
+            <span class="font-bold text-emerald-400">Plafon Belanja PBF (Kas Bebas)</span>
+            <span class="font-bold text-emerald-400 text-sm" id="resPlafonBelanja">Rp 0</span>
+          </div>
         </div>
-        <p class="text-xs text-slate-400">PBF: Hexpharm | Isi: 100 tab/Box</p>
-        <p class="text-xs text-slate-400 mt-0.5">Est. Harga: <span class="text-slate-200">Rp 185.000 / Box</span></p>
       </div>
-      <div class="text-right">
-        <span class="text-[10px] text-slate-400 block">Saran Order</span>
-        <div class="flex items-center gap-1 mt-0.5">
-          <input type="number" value="2" min="1" class="w-12 bg-slate-900 border border-slate-600 rounded text-center text-xs text-amber-400 font-bold py-1">
-          <span class="text-xs text-slate-300">Box</span>
-        </div>
-      </div>
-    </div>
+    </section>
 
-    <!-- Item Card 2 -->
-    <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-3">
-      <input type="checkbox" onchange="toggleItem(this, 92000)" class="w-5 h-5 accent-amber-400 rounded cursor-pointer">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1.5">
-          <span class="font-semibold text-sm truncate text-slate-100">Paracetamol Sy 120mg/5ml</span>
-          <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.2 rounded">Fast</span>
+    <!-- TAB 2: QUICK-TICK ORDER -->
+    <section id="tab-quicktick" class="tab-content hidden space-y-3">
+      <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 space-y-2">
+        <div class="flex justify-between text-xs">
+          <span class="text-slate-400">Batas Anggaran Order (65%):</span>
+          <span class="font-bold text-emerald-400" id="qtPlafonLimit">Rp 0</span>
         </div>
-        <p class="text-xs text-slate-400">PBF: Kalbe | Isi: 24 Btl/Box</p>
-        <p class="text-xs text-slate-400 mt-0.5">Est. Harga: <span class="text-slate-200">Rp 92.000 / Box</span></p>
-      </div>
-      <div class="text-right">
-        <span class="text-[10px] text-slate-400 block">Saran Order</span>
-        <div class="flex items-center gap-1 mt-0.5">
-          <input type="number" value="1" min="1" class="w-12 bg-slate-900 border border-slate-600 rounded text-center text-xs text-amber-400 font-bold py-1">
-          <span class="text-xs text-slate-300">Box</span>
+        <div class="flex justify-between text-xs border-t border-slate-700/50 pt-1">
+          <span class="text-slate-400">Total Est. PO Ini:</span>
+          <span class="font-bold text-cyan-400" id="qtTotalSelected">Rp 0</span>
         </div>
       </div>
-    </div>
+
+      <input type="text" id="qtSearch" placeholder="Cari nama obat / PBF..." onkeyup="filterObat()"
+             class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+
+      <div class="flex gap-2 text-[11px] font-medium">
+        <button onclick="filterKategori('all')" class="bg-amber-500 text-slate-950 px-3 py-1 rounded-full font-bold">Semua</button>
+        <button onclick="filterKategori('fast')" class="bg-slate-800 border border-slate-700 text-slate-300 px-3 py-1 rounded-full">🔥 Fast Moving</button>
+      </div>
+
+      <!-- DAFTAR OBAT -->
+      <div id="obatContainer" class="space-y-2">
+        <!-- Item di-generate via JS -->
+      </div>
+    </section>
+
+    <!-- TAB 3: INPUT FAKTUR MASUK -->
+    <section id="tab-faktur" class="tab-content hidden space-y-4">
+      <div class="bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-3">
+        <h2 class="text-sm font-bold text-slate-200 border-b border-slate-700 pb-2">📥 Penerimaan Barang Masuk (PBF)</h2>
+        
+        <div class="space-y-2 text-xs">
+          <div>
+            <label class="text-slate-400 block mb-1">Nama PBF Supplier</label>
+            <input type="text" id="fakPbf" placeholder="Contoh: PT Mensa Bina Sukses" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+          </div>
+          <div>
+            <label class="text-slate-400 block mb-1">Nomor Faktur</label>
+            <input type="text" id="fakNo" placeholder="INV/2026/001" 
+                   class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-slate-400 block mb-1">Total Nominal Faktur</label>
+              <input type="number" id="fakTotal" placeholder="Rp" 
+                     class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+            </div>
+            <div>
+              <label class="text-slate-400 block mb-1">TOP (Jatuh Tempo)</label>
+              <select id="fakTop" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-amber-400">
+                <option value="0">Cash / COD</option>
+                <option value="14">14 Hari</option>
+                <option value="21">21 Hari</option>
+                <option value="30" selected>30 Hari</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="simpanFakturMasuk()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-lg text-xs transition-all mt-2">
+            Simpan Faktur & Update Tanggal TOP
+          </button>
+        </div>
+      </div>
+    </section>
 
   </main>
 
-  <!-- BOTTOM ACTION BAR -->
-  <footer class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-4 shadow-xl flex items-center justify-between gap-3">
-    <div>
-      <span class="text-xs text-slate-400 block"><span id="selectedCount" class="font-bold text-amber-400">0</span> Obat Dipilih</span>
-      <span class="text-xs font-semibold text-emerald-400" id="statusAnggaran">Status: Safe</span>
+  <!-- BOTTOM NAVIGATION BAR -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 z-50">
+    <div class="max-w-md mx-auto grid grid-cols-3 text-center py-2 text-xs">
+      <button onclick="switchTab('cashflow')" id="nav-cashflow" class="text-amber-400 font-bold py-1 flex flex-col items-center">
+        <span class="text-base">💰</span> Kas & Omzet
+      </button>
+      <button onclick="switchTab('quicktick')" id="nav-quicktick" class="text-slate-400 py-1 flex flex-col items-center">
+        <span class="text-base">⚡</span> Quick-Tick
+      </button>
+      <button onclick="switchTab('faktur')" id="nav-faktur" class="text-slate-400 py-1 flex flex-col items-center">
+        <span class="text-base">📦</span> Faktur PBF
+      </button>
     </div>
-    <button onclick="submitOrder()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-lg text-sm transition-all shadow-lg shadow-amber-500/20">
-      ⚡ Terbitkan Surat Pesanan (SP)
-    </button>
-  </footer>
+  </nav>
 
+  <!-- SCRIPT UTAMA -->
+  <script>
+    // 1. KONFIGURASI FIREBASE (Ganti dengan config milik Anda)
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "123456789",
+      appId: "1:123456789:web:abc123def456"
+    };
+
+    // Inisialisasi Firebase
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    // Cek Status Koneksi DB
+    db.ref('.info/connected').on('value', (snap) => {
+      const statusEl = document.getElementById('dbStatus');
+      if (snap.val() === true) {
+        statusEl.innerText = "Online (Firebase)";
+        statusEl.className = "text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full border border-emerald-500/30";
+      } else {
+        statusEl.innerText = "Offline Mode";
+        statusEl.className = "text-[10px] bg-slate-700 text-slate-300 px-2 py-1 rounded-full border border-slate-600";
+      }
+    });
+
+    // Data Master Obat (Dummy / Cached Data)
+    let masterObat = [
+      { id: "OBT01", nama: "Amoxicillin 500mg Box", pbf: "Hexpharm", harga: 185000, isFast: true },
+      { id: "OBT02", nama: "Paracetamol Syrup 120mg", pbf: "Kalbe", harga: 92000, isFast: true },
+      { id: "OBT03", nama: "Amlodipine 10mg Strip", pbf: "Dexa", harga: 45000, isFast: false },
+      { id: "OBT04", nama: "Cefadroxil 500mg Capsule", pbf: "Mensa", harga: 140000, isFast: true }
+    ];
+
+    let currentPlafon = 0;
+    let selectedItems = {};
+
+    // Inisialisasi Tampilan
+    document.getElementById('currentDateText').innerText = new Date().toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' });
+
+    // Switch Tab UI
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tabName).classList.remove('hidden');
+
+      ['cashflow', 'quicktick', 'faktur'].forEach(t => {
+        const btn = document.getElementById('nav-' + t);
+        if (t === tabName) {
+          btn.className = "text-amber-400 font-bold py-1 flex flex-col items-center";
+        } else {
+          btn.className = "text-slate-400 py-1 flex flex-col items-center";
+        }
+      });
+
+      if(tabName === 'quicktick') renderObatList();
+    }
+
+    // Perhitungan Kas & Omzet
+    function hitungDanSimpanOmzet() {
+      const omzet = parseFloat(document.getElementById('inputOmzet').value) || 0;
+      const opex = parseFloat(document.getElementById('inputOpex').value) || 0;
+
+      if (omzet <= 0) {
+        alert('Masukkan nominal omzet harian.');
+        return;
+      }
+
+      const labaKotor = omzet - opex;
+      const setorPemilik = labaKotor * 0.20;
+      const setorTetapPajak = 217000; // Rp 6.5M / 30 Hari
+      const plafonBelanja = (0.80 * labaKotor) - setorTetapPajak;
+
+      currentPlafon = plafonBelanja;
+
+      document.getElementById('resLabaKotor').innerText = 'Rp ' + labaKotor.toLocaleString('id-ID');
+      document.getElementById('resSetoranPemilik').innerText = 'Rp ' + setorPemilik.toLocaleString('id-ID');
+      document.getElementById('resPlafonBelanja').innerText = 'Rp ' + plafonBelanja.toLocaleString('id-ID');
+      document.getElementById('qtPlafonLimit').innerText = 'Rp ' + plafonBelanja.toLocaleString('id-ID');
+
+      // Simpan ke Firebase
+      const todayStr = new Date().toISOString().split('T')[0];
+      db.ref('omzet_harian/' + todayStr).set({
+        omzet: omzet,
+        opex: opex,
+        labaKotor: labaKotor,
+        setoranPemilik: setorPemilik,
+        plafonBelanja: plafonBelanja,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      }).then(() => {
+        alert('Data Omzet berhasil dikunci di database!');
+      }).catch(err => {
+        console.warn('Gagal simpan ke DB, berjalan offline:', err);
+      });
+    }
+
+    // Render List Quick-Tick
+    function renderObatList() {
+      const container = document.getElementById('obatContainer');
+      container.innerHTML = '';
+
+      masterObat.forEach(item => {
+        const div = document.createElement('div');
+        div.className = "bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-3";
+        div.innerHTML = `
+          <input type="checkbox" onchange="toggleObatSelect('${item.id}', ${item.harga}, this)" class="w-5 h-5 accent-amber-400 rounded cursor-pointer">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1">
+              <span class="font-semibold text-xs truncate text-slate-100">${item.nama}</span>
+              ${item.isFast ? '<span class="text-[9px] bg-red-500/20 text-red-400 border border-red-500/30 px-1 rounded">Fast</span>' : ''}
+            </div>
+            <p class="text-[11px] text-slate-400">PBF: ${item.pbf} | Rp ${item.harga.toLocaleString('id-ID')}/Box</p>
+          </div>
+          <div class="text-right">
+            <input type="number" id="qty-${item.id}" value="1" min="1" onchange="updateQty('${item.id}', ${item.harga})"
+                   class="w-12 bg-slate-900 border border-slate-600 rounded text-center text-xs text-amber-400 font-bold py-1">
+            <span class="text-[10px] text-slate-400 block">Box</span>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function toggleObatSelect(id, harga, checkbox) {
+      const qty = parseInt(document.getElementById('qty-' + id).value) || 1;
+      if (checkbox.checked) {
+        selectedItems[id] = { harga: harga, qty: qty };
+      } else {
+        delete selectedItems[id];
+      }
+      kalkulasiTotalPO();
+    }
+
+    function updateQty(id, harga) {
+      if (selectedItems[id]) {
+        const qty = parseInt(document.getElementById('qty-' + id).value) || 1;
+        selectedItems[id].qty = qty;
+        kalkulasiTotalPO();
+      }
+    }
+
+    function kalkulasiTotalPO() {
+      let total = 0;
+      Object.keys(selectedItems).forEach(key => {
+        total += selectedItems[key].harga * selectedItems[key].qty;
+      });
+
+      const totalEl = document.getElementById('qtTotalSelected');
+      totalEl.innerText = 'Rp ' + total.toLocaleString('id-ID');
+
+      if (total > currentPlafon && currentPlafon > 0) {
+        totalEl.className = "font-bold text-red-400 animate-pulse";
+      } else {
+        totalEl.className = "font-bold text-cyan-400";
+      }
+    }
+
+    // Simpan Faktur PBF
+    function simpanFakturMasuk() {
+      const pbf = document.getElementById('fakPbf').value;
+      const noFak = document.getElementById('fakNo').value;
+      const total = parseFloat(document.getElementById('fakTotal').value) || 0;
+      const top = parseInt(document.getElementById('fakTop').value) || 0;
+
+      if (!pbf || !noFak || total <= 0) {
+        alert('Lengkapi seluruh data faktur!');
+        return;
+      }
+
+      const tglJatuhTempo = new Date();
+      tglJatuhTempo.setDate(tglJatuhTempo.getDate() + top);
+
+      const fakturData = {
+        pbf: pbf,
+        noFaktur: noFak,
+        totalNominal: total,
+        topHari: top,
+        tanggalJatuhTempo: tglJatuhTempo.toISOString().split('T')[0],
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      };
+
+      db.ref('faktur_masuk').push(fakturData).then(() => {
+        alert('Faktur berhasil dicatat. Tanggal Jatuh Tempo: ' + fakturData.tanggalJatuhTempo);
+        document.getElementById('fakPbf').value = '';
+        document.getElementById('fakNo').value = '';
+        document.getElementById('fakTotal').value = '';
+      });
+    }
+
+    // 2. REGISTRASI SERVICE WORKER (PWA)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js')
+          .then(reg => console.log('Service Worker Terdaftar:', reg.scope))
+          .catch(err => console.error('Gagal daftar SW:', err));
+      });
+    }
+  </script>
 </body>
 </html>
