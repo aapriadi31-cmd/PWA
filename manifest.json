@@ -1,24 +1,38 @@
 {
-  "name": "Sistem Stok Apotek PWA",
-  "short_name": "ApotekStok",
-  "description": "Aplikasi Manajemen Stok dan Inventaris Apotek Realtime",
-  "start_url": "./index.html",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#16a34a",
-  "orientation": "portrait",
-  "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/3063/3063822.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/3063/3063822.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+  "omzet_harian": {
+    "2026-10-09": {
+      "omzet": 3500000,
+      "opex": 333000,
+      "labaKotor": 3167000,
+      "setoranPemilik": 633400,
+      "plafonBelanja": 2316600,
+      "timestamp": 1791500000000
     }
-  ]
+  },
+  "faktur_masuk": {
+    "-O123abc456def": {
+      "noFaktur": "INV/2026/001",
+      "pbf": "PT Mensa Bina Sukses",
+      "totalNominal": 1500000,
+      "topHari": 30,
+      "tanggalJatuhTempo": "2026-11-08",
+      "timestamp": 1791500000000
+    }
+  },
+  "stok_obat": {
+    "OBT01": {
+      "nama": "Amoxicillin 500mg Box",
+      "pbf": "Hexpharm",
+      "harga": 185000,
+      "isFastMoving": true,
+      "minStok": 2
+    }
+  },
+  "surat_pesanan": {
+    "-O789ghi012jkl": {
+      "tanggal": "2026-10-09",
+      "totalEstimasi": 2100000,
+      "status": "Draft"
+    }
+  }
 }
