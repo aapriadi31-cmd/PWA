@@ -3,281 +3,99 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Apotek Stok PWA</title>
-
-  <!-- PWA Manifest & Theme -->
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#16a34a">
-  <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3063/3063822.png">
-
-  <!-- Tailwind CSS -->
+  <title>Quick-Tick Asisten Order</title>
   <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Firebase Web SDK v10 (Compat Version) -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <!-- Library khusus Firebase REALTIME DATABASE -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 </head>
-<body class="bg-gray-100 min-h-screen pb-10">
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-28">
 
-  <!-- Header -->
-  <header class="bg-green-700 text-white p-4 shadow-md sticky top-0 z-10">
-    <div class="flex justify-between items-center max-w-lg mx-auto">
-      <h1 class="text-lg font-bold flex items-center gap-2">
-        <span>⚡</span> Stok Apotek (Realtime DB)
-      </h1>
-      <span id="pwa-status" class="text-xs bg-green-800 px-2 py-1 rounded">Live Sync</span>
+  <!-- TOP HEADER: Kontrol Budget Cashflow -->
+  <header class="sticky top-0 z-10 bg-slate-800 border-b border-slate-700 p-4 shadow-md">
+    <div class="flex justify-between items-center mb-2">
+      <h1 class="text-base font-bold text-amber-400">⚡ Quick-Tick Order</h1>
+      <span class="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium">Plafon 65% Aktif</span>
+    </div>
+    <div class="grid grid-cols-2 gap-2 text-xs">
+      <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+        <span class="text-slate-400 block">Sisa Plafon Belanja:</span>
+        <span class="text-sm font-bold text-emerald-400" id="sisaPlafon">Rp 12.500.000</span>
+      </div>
+      <div class="bg-slate-900/80 p-2 rounded border border-slate-700">
+        <span class="text-slate-400 block">Total Est. PO Ini:</span>
+        <span class="text-sm font-bold text-cyan-400" id="totalEstimasiPo">Rp 0</span>
+      </div>
     </div>
   </header>
 
-  <!-- Navigasi Tab -->
-  <div class="max-w-lg mx-auto bg-white border-b flex text-center font-medium text-sm text-gray-600">
-    <button id="tab-stok-btn" onclick="switchTab('stok')" class="w-1/2 py-3 border-b-2 border-green-600 text-green-700 font-bold">
-      📦 Daftar Stok
-    </button>
-    <button id="tab-input-btn" onclick="switchTab('input')" class="w-1/2 py-3 border-b-2 border-transparent hover:text-green-600">
-      ➕ Input Barang Masuk
-    </button>
-  </div>
+  <!-- SEARCH & FILTER CEPAT -->
+  <section class="p-4 space-y-3">
+    <div class="relative">
+      <input type="text" id="searchInput" placeholder="Ketik nama obat / scan barcode..." 
+             class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-400">
+    </div>
 
-  <main class="max-w-lg mx-auto p-4">
+    <!-- Filter Tab Pareto / Kelas -->
+    <div class="flex gap-2 overflow-x-auto text-xs font-medium pb-1">
+      <button class="bg-amber-500 text-slate-950 px-3 py-1.5 rounded-full font-semibold">🔥 Kelas A (Fast Moving)</button>
+      <button class="bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-full">⚠️ Kritis / ROP</button>
+      <button class="bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-full">💊 Obat Resep</button>
+    </div>
+  </section>
 
-    <!-- TAB 1: DAFTAR STOK REALTIME -->
-    <section id="tab-stok">
-      <div class="flex justify-between items-center mb-3">
-        <h2 class="font-bold text-gray-700">Monitoring Stok Utama</h2>
-        <span class="text-xs text-green-600 font-semibold">● Auto Sync</span>
+  <!-- DAFTAR OBAT (QUICK-TICK CARDS) -->
+  <main class="px-4 space-y-2" id="itemList">
+    
+    <!-- Item Card 1 -->
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-3">
+      <input type="checkbox" onchange="toggleItem(this, 185000)" class="w-5 h-5 accent-amber-400 rounded cursor-pointer">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="font-semibold text-sm truncate text-slate-100">Amoxicillin 500mg</span>
+          <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.2 rounded">Fast</span>
+        </div>
+        <p class="text-xs text-slate-400">PBF: Hexpharm | Isi: 100 tab/Box</p>
+        <p class="text-xs text-slate-400 mt-0.5">Est. Harga: <span class="text-slate-200">Rp 185.000 / Box</span></p>
       </div>
-      <div id="loading" class="text-center text-gray-500 py-8">Memuat data dari Realtime Database...</div>
-      <ul id="stok-list" class="space-y-2"></ul>
-    </section>
-
-    <!-- TAB 2: FORM INPUT BARANG MASUK -->
-    <section id="tab-input" class="hidden">
-      <h2 class="font-bold text-gray-700 mb-3">Form Entry Barang Masuk (Faktur)</h2>
-      <form id="form-barang-masuk" onsubmit="kirimBarangMasuk(event)" class="bg-white p-4 rounded-lg shadow space-y-3">
-        
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">No. Faktur PBF</label>
-          <input type="text" id="no_faktur" required placeholder="Contoh: FAK-BS-8821" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
+      <div class="text-right">
+        <span class="text-[10px] text-slate-400 block">Saran Order</span>
+        <div class="flex items-center gap-1 mt-0.5">
+          <input type="number" value="2" min="1" class="w-12 bg-slate-900 border border-slate-600 rounded text-center text-xs text-amber-400 font-bold py-1">
+          <span class="text-xs text-slate-300">Box</span>
         </div>
+      </div>
+    </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">No. PO (Surat Pesanan)</label>
-          <input type="text" id="no_po" placeholder="Contoh: PO-202610-001" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
+    <!-- Item Card 2 -->
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-3 flex items-center justify-between gap-3">
+      <input type="checkbox" onchange="toggleItem(this, 92000)" class="w-5 h-5 accent-amber-400 rounded cursor-pointer">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5">
+          <span class="font-semibold text-sm truncate text-slate-100">Paracetamol Sy 120mg/5ml</span>
+          <span class="text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.2 rounded">Fast</span>
         </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">Nama PBF / Supplier</label>
-          <input type="text" id="supplier" required placeholder="Contoh: PBF Bina Sanitha" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
+        <p class="text-xs text-slate-400">PBF: Kalbe | Isi: 24 Btl/Box</p>
+        <p class="text-xs text-slate-400 mt-0.5">Est. Harga: <span class="text-slate-200">Rp 92.000 / Box</span></p>
+      </div>
+      <div class="text-right">
+        <span class="text-[10px] text-slate-400 block">Saran Order</span>
+        <div class="flex items-center gap-1 mt-0.5">
+          <input type="number" value="1" min="1" class="w-12 bg-slate-900 border border-slate-600 rounded text-center text-xs text-amber-400 font-bold py-1">
+          <span class="text-xs text-slate-300">Box</span>
         </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">SKU Code</label>
-            <input type="text" id="sku" required placeholder="SKU-PCT-500" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Nama Produk</label>
-            <input type="text" id="nama_produk" required placeholder="Paracetamol 500mg Strip" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Qty Diterima</label>
-            <input type="number" id="qty" required min="1" placeholder="12" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Satuan</label>
-            <input type="text" id="satuan" required placeholder="Strip / Box / Botol" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">No. Batch</label>
-            <input type="text" id="no_batch" required placeholder="BCH-PCT-2026A" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Expired Date (ED)</label>
-            <input type="date" id="ed" required class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Harga Beli Satuan (Rp)</label>
-            <input type="number" id="harga" required placeholder="4000" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
-          </div>
-          <div>
-            <label class="block text-xs font-semibold text-gray-600 mb-1">Penerima (Petugas)</label>
-            <input type="text" id="penerima" required placeholder="Nama Petugas" class="w-full border p-2 rounded text-sm focus:ring-2 focus:ring-green-500 outline-none">
-          </div>
-        </div>
-
-        <button type="submit" id="btn-submit" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow hover:bg-green-700 transition duration-200 mt-2">
-          💾 Simpan Barang Masuk
-        </button>
-      </form>
-    </section>
+      </div>
+    </div>
 
   </main>
 
-  <script>
-    // Konfigurasi Firebase dengan URL Realtime Database Anda
-    const firebaseConfig = {
-      apiKey: "AIzaSyALa6j05iwf2eQxqX3oEs6zZdLhc6OBl48",
-      authDomain: "pwa-1b376.firebaseapp.com",
-      databaseURL: "https://pwa-1b376-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "pwa-1b376",
-      storageBucket: "pwa-1b376.firebasestorage.app",
-      messagingSenderId: "178627295946",
-      appId: "1:178627295946:web:14965e737bef0707075233",
-      measurementId: "G-B69KG49ME6"
-    };
+  <!-- BOTTOM ACTION BAR -->
+  <footer class="fixed bottom-0 left-0 right-0 bg-slate-800 border-t border-slate-700 p-4 shadow-xl flex items-center justify-between gap-3">
+    <div>
+      <span class="text-xs text-slate-400 block"><span id="selectedCount" class="font-bold text-amber-400">0</span> Obat Dipilih</span>
+      <span class="text-xs font-semibold text-emerald-400" id="statusAnggaran">Status: Safe</span>
+    </div>
+    <button onclick="submitOrder()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-lg text-sm transition-all shadow-lg shadow-amber-500/20">
+      ⚡ Terbitkan Surat Pesanan (SP)
+    </button>
+  </footer>
 
-    // Inisialisasi Firebase & Realtime Database
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    // Switch Tab Navigasi
-    function switchTab(tab) {
-      const tabStok = document.getElementById('tab-stok');
-      const tabInput = document.getElementById('tab-input');
-      const btnStok = document.getElementById('tab-stok-btn');
-      const btnInput = document.getElementById('tab-input-btn');
-
-      if (tab === 'stok') {
-        tabStok.classList.remove('hidden');
-        tabInput.classList.add('hidden');
-        btnStok.className = "w-1/2 py-3 border-b-2 border-green-600 text-green-700 font-bold";
-        btnInput.className = "w-1/2 py-3 border-b-2 border-transparent hover:text-green-600";
-      } else {
-        tabInput.classList.remove('hidden');
-        tabStok.classList.add('hidden');
-        btnInput.className = "w-1/2 py-3 border-b-2 border-green-600 text-green-700 font-bold";
-        btnStok.className = "w-1/2 py-3 border-b-2 border-transparent hover:text-green-600";
-      }
-    }
-
-    // Membaca Data Stok Realtime dari Node 'stok_utama'
-    function listenStokRealtime() {
-      db.ref("stok_utama").on("value", (snapshot) => {
-        const list = document.getElementById('stok-list');
-        const loading = document.getElementById('loading');
-        loading.style.display = 'none';
-
-        if (!snapshot.exists()) {
-          list.innerHTML = '<li class="text-center text-gray-500 py-6 bg-white rounded-lg shadow">Belum ada barang di Realtime Database. Sila input barang masuk terlebih dahulu.</li>';
-          return;
-        }
-
-        let html = '';
-        snapshot.forEach((childSnapshot) => {
-          const item = childSnapshot.val();
-          const stokAktual = Number(item.stok_aktual) || 0;
-          const bufferQty = Number(item.buffer_qty || 5);
-          const isKritis = stokAktual <= bufferQty;
-
-          html += `
-            <li class="bg-white p-3 rounded-lg shadow flex justify-between items-center border-l-4 ${isKritis ? 'border-red-500' : 'border-green-500'}">
-              <div>
-                <p class="font-bold text-gray-800 text-sm">${item.nama_produk}</p>
-                <p class="text-xs text-gray-500">${item.sku} • ${item.kategori || 'Obat'}</p>
-              </div>
-              <div class="text-right">
-                <span class="text-base font-extrabold text-gray-800">${stokAktual} ${item.satuan || ''}</span>
-                <p class="text-[10px] font-bold ${isKritis ? 'text-red-600' : 'text-green-600'}">${isKritis ? 'KRITIS' : 'AMAN'}</p>
-              </div>
-            </li>
-          `;
-        });
-        list.innerHTML = html;
-      }, (error) => {
-        document.getElementById('loading').innerText = "⚠️ Error Database: " + error.message;
-      });
-    }
-
-    // Submit Barang Masuk & Update Stok Otomatis di Realtime Database
-    async function kirimBarangMasuk(e) {
-      e.preventDefault();
-      const btnSubmit = document.getElementById('btn-submit');
-      btnSubmit.disabled = true;
-      btnSubmit.innerText = "⏳ Menyimpan Data...";
-
-      const sku = document.getElementById('sku').value.trim().toUpperCase();
-      const nama_produk = document.getElementById('nama_produk').value.trim();
-      const qty = Number(document.getElementById('qty').value) || 0;
-      const harga = Number(document.getElementById('harga').value) || 0;
-      const satuan = document.getElementById('satuan').value.trim();
-
-      const dataMasuk = {
-        no_faktur: document.getElementById('no_faktur').value,
-        no_po: document.getElementById('no_po').value,
-        supplier: document.getElementById('supplier').value,
-        sku: sku,
-        nama_produk: nama_produk,
-        qty: qty,
-        satuan: satuan,
-        no_batch: document.getElementById('no_batch').value,
-        ed: document.getElementById('ed').value,
-        harga: harga,
-        total: qty * harga,
-        penerima: document.getElementById('penerima').value,
-        created_at: firebase.database.ServerValue.TIMESTAMP
-      };
-
-      try {
-        // 1. Simpan Log Penerimaan ke node 'barang_masuk'
-        await db.ref("barang_masuk").push(dataMasuk);
-
-        // 2. Cek & Update Stok di node 'stok_utama/SKU'
-        const stokRef = db.ref("stok_utama/" + sku);
-        const snapshot = await stokRef.once('value');
-
-        if (snapshot.exists()) {
-          const stokLama = Number(snapshot.val().stok_aktual) || 0;
-          await stokRef.update({
-            stok_aktual: stokLama + qty,
-            harga_beli: harga,
-            updated_at: firebase.database.ServerValue.TIMESTAMP
-          });
-        } else {
-          await stokRef.set({
-            sku: sku,
-            nama_produk: nama_produk,
-            stok_aktual: qty,
-            satuan: satuan,
-            harga_beli: harga,
-            buffer_qty: 5,
-            kategori: 'Obat',
-            created_at: firebase.database.ServerValue.TIMESTAMP
-          });
-        }
-
-        alert("✅ Data Barang Masuk Berhasil Disimpan!");
-        document.getElementById('form-barang-masuk').reset();
-        switchTab('stok');
-      } catch (err) {
-        alert("❌ Gagal menyimpan data: " + err.message);
-      } finally {
-        btnSubmit.disabled = false;
-        btnSubmit.innerText = "💾 Simpan Barang Masuk";
-      }
-    }
-
-    // Jalankan Sinkronisasi Realtime saat halaman dibuka
-    listenStokRealtime();
-
-    // PWA Service Worker
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(reg => console.log('SW PWA Terdaftar', reg))
-          .catch(err => console.log('SW Error', err));
-      });
-    }
-  </script>
 </body>
 </html>
